@@ -6,6 +6,8 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringEscapeUtils;
+
 import org.restsql.core.ColumnMetaData;
 import org.restsql.core.Config;
 import org.restsql.core.SqlResource;
@@ -21,7 +23,8 @@ public class ResultsSerializer {
 			string.append(" ");
 			string.append(name);
 			string.append("=\"");
-			string.append(value.toString());
+			//Escape offensive characters in the value that might break the XML
+			string.append(StringEscapeUtils.escapeXml(value.toString()));
 			string.append('"');
 		}
 	}
