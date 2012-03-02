@@ -22,15 +22,16 @@ public class SqlResourceDefinitionUtils {
 	}
 
 	/**
-	 * Returns table with specified qualfied name. If the qualified name doesn't exist, finds table by unqualified name.
+	 * Returns table with specified qualified name. If the qualified name doesn't exist, finds table by unqualified name.
 	 */
 	public static Table getTable(final SqlResourceDefinition definition, final ColumnMetaData column) {
 		Table target = null;
 		for (final Table table : definition.getMetadata().getTable()) {
-			if (table.getName().equals(column.getQualifiedTableName())) {
+		    //SQL is not case-sensitive, so we shouldn't be either
+			if (table.getName().equalsIgnoreCase(column.getQualifiedTableName())) {
 				target = table;
 				break;
-			} else if (table.getName().equals(column.getTableName())) {
+			} else if (table.getName().equalsIgnoreCase(column.getTableName())) {
 				target = table;
 				break;
 			}
