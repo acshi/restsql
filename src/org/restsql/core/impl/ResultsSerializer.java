@@ -2,6 +2,7 @@
 package org.restsql.core.impl;
 
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +36,6 @@ public class ResultsSerializer {
 	 * @param sqlResource SQL resource
 	 * @param results results
 	 * @return XML string
-	 * @todo escape illegal xml chars, e.g. quotes
 	 */
 	public static String serializeReadHierarchical(final SqlResource sqlResource, final List<Map<String, Object>> results) {
 		final StringBuffer string = new StringBuffer(results.size() * 100);
@@ -51,7 +51,6 @@ public class ResultsSerializer {
 	 * @param sqlResource SQL resource
 	 * @param resultSet results
 	 * @return XML string
-	 * @todo escape illegal xml chars, e.g. quotes
 	 */
 	public static String serializeReadFlat(final SqlResource sqlResource, final ResultSet resultSet)
 			throws SQLException {
@@ -60,11 +59,16 @@ public class ResultsSerializer {
 		while (resultSet.next()) {
 			string.append("\n\t<");
 			string.append(sqlResource.getParentTable().getTableAlias());
-			for (final ColumnMetaData column : sqlResource.getMetaData().getAllReadColumns()) {
+			/*for (final ColumnMetaData column : sqlResource.getMetaData().getAllReadColumns()) {
 				if (!column.isNonqueriedForeignKey()) {
 					appendNameValuePair(string, column.getColumnLabel(), SqlUtils.getObjectByColumnNumber(
 							column, resultSet));
 				}
+			}*/
+			ResultSetMetaData metaData = resultSet.getMetaData();
+			for (int columnIndex = 1; columnIndex <= metaData.getColumnCount(); columnIndex++) {
+			    appendNameValuePair(string, metaData.getColumnLabel(columnIndex), SqlUtils.getObjectByColumnNumber(
+			            columnIndex, metaData, resultSet));
 			}
 			string.append(" />");
 		}

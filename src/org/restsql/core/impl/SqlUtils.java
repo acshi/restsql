@@ -2,6 +2,7 @@
 package org.restsql.core.impl;
 
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 
@@ -41,4 +42,13 @@ class SqlUtils {
 			return resultSet.getObject(column.getColumnNumber());
 		}
 	}
+	
+	static Object getObjectByColumnNumber(int columnNumber, final ResultSetMetaData metaData, final ResultSet resultSet)
+            throws SQLException {
+        if (metaData.getColumnType(columnNumber) == Types.DATE && metaData.getColumnTypeName(columnNumber).equals("YEAR")) {
+            return new Integer(resultSet.getInt(columnNumber));
+        } else {
+            return resultSet.getObject(columnNumber);
+        }
+    }
 }
