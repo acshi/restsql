@@ -33,7 +33,7 @@ public abstract class AbstractSqlResourceMetaData implements SqlResourceMetaData
 	private static final int DEFAULT_NUMBER_DATABASES = 5;
 	private static final int DEFAULT_NUMBER_TABLES = 10;
 
-	private List<ColumnMetaData> allReadColumns, parentReadColumns, childReadColumns;
+	private List<ColumnMetaData> allReadColumns, parentReadColumns, childReadColumns, readOnlyColumns;
 	private TableMetaData childTable, parentTable, joinTable;
 	private SqlResourceDefinition definition;
 	private boolean hierarchical;
@@ -49,6 +49,10 @@ public abstract class AbstractSqlResourceMetaData implements SqlResourceMetaData
 	public List<ColumnMetaData> getAllReadColumns() {
 		return allReadColumns;
 	}
+	
+   public List<ColumnMetaData> getReadOnlyColumns() {
+        return readOnlyColumns;
+    }
 
 	public TableMetaData getChild() {
 		return childTable;
@@ -338,82 +342,103 @@ public abstract class AbstractSqlResourceMetaData implements SqlResourceMetaData
 	 */
 	@SuppressWarnings("fallthrough")
 	private void buildTablesAndColumns(final ResultSet resultSet) throws SQLException, SqlResourceException {
-		final ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
-		final int columnCount = resultSetMetaData.getColumnCount();
+	    final ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
+	    final int columnCount = resultSetMetaData.getColumnCount();
 
-		allReadColumns = new ArrayList<ColumnMetaData>(columnCount);
-		parentReadColumns = new ArrayList<ColumnMetaData>(columnCount);
-		childReadColumns = new ArrayList<ColumnMetaData>(columnCount);
-		tableMap = new HashMap<String, TableMetaData>(DEFAULT_NUMBER_TABLES);
-		tables = new ArrayList<TableMetaData>(DEFAULT_NUMBER_TABLES);
-		childPlusExtTables = new ArrayList<TableMetaData>(DEFAULT_NUMBER_TABLES);
-		parentPlusExtTables = new ArrayList<TableMetaData>(DEFAULT_NUMBER_TABLES);
-		final HashSet<String> databases = new HashSet<String>(DEFAULT_NUMBER_DATABASES);
+	    allReadColumns = new ArrayList<ColumnMetaData>(columnCount);
+	    parentReadColumns = new ArrayList<ColumnMetaData>(columnCount);
+	    childReadColumns = new ArrayList<ColumnMetaData>(columnCount);
+	    tableMap = new HashMap<String, TableMetaData>(DEFAULT_NUMBER_TABLES);
+	    tables = new ArrayList<TableMetaData>(DEFAULT_NUMBER_TABLES);
+	    childPlusExtTables = new ArrayList<TableMetaData>(DEFAULT_NUMBER_TABLES);
+	    parentPlusExtTables = new ArrayList<TableMetaData>(DEFAULT_NUMBER_TABLES);
+	    final HashSet<String> databases = new HashSet<String>(DEFAULT_NUMBER_DATABASES);
 
-		for (int colNumber = 1; colNumber <= columnCount; colNumber++) {
-			final String databaseName = getColumnDatabaseName(definition, resultSetMetaData, colNumber);
-			databases.add(databaseName);
-			final String qualifiedTableName = getQualifiedTableName(definition, resultSetMetaData, colNumber);
-			final String tableName = getColumnTableName(definition, resultSetMetaData, colNumber);
-			final ColumnMetaDataImpl column = new ColumnMetaDataImpl(colNumber, databaseName,
-					qualifiedTableName, tableName, getColumnName(definition, resultSetMetaData, colNumber),
-					resultSetMetaData.getColumnLabel(colNumber), resultSetMetaData
-							.getColumnTypeName(colNumber), resultSetMetaData.getColumnType(colNumber));
+	    readOnlyColumns = new ArrayList<ColumnMetaData>(columnCount);
 
-			TableMetaDataImpl table = (TableMetaDataImpl) tableMap.get(column.getQualifiedTableName());
-			if (table == null) {
-				// Create table metadata object and add to special references
-				final Table tableDef = SqlResourceDefinitionUtils.getTable(definition, column);
-				if (tableDef == null) {
-					throw new SqlResourceException("Definition requires table element for " + column.getTableName() + ", referenced by column " + column.getColumnLabel());
-				}
-				table = new TableMetaDataImpl(tableName, qualifiedTableName, databaseName, TableRole.valueOf(tableDef.getRole()));
-				tableMap.put(column.getQualifiedTableName(), table);
-				tables.add(table);
+	    for (int colNumber = 1; colNumber <= columnCount; colNumber++) {
+	        final String databaseName = getColumnDatabaseName(definition, resultSetMetaData, colNumber);
+	        databases.add(databaseName);
+	        final String qualifiedTableName = getQualifiedTableName(definition, resultSetMetaData, colNumber);
+	        final String tableName = getColumnTableName(definition, resultSetMetaData, colNumber);
+	        final ColumnMetaDataImpl column = new ColumnMetaDataImpl(colNumber, databaseName,
+	                qualifiedTableName, tableName, getColumnName(definition, resultSetMetaData, colNumber),
+	                resultSetMetaData.getColumnLabel(colNumber), resultSetMetaData.getColumnTypeName(colNumber),
+	                resultSetMetaData.getColumnType(colNumber));
 
-				switch (table.getTableRole()) {
-					case Parent:
-						parentTable = table;
-						if (tableDef.getAlias() != null) {
-							table.setTableAlias(tableDef.getAlias());
-						}
-						// fall through
-					case ParentExtension:
-						parentPlusExtTables.add(table);
-						break;
-					case Child:
-						childTable = table;
-						if (tableDef.getAlias() != null) {
-							table.setTableAlias(tableDef.getAlias());
-						}
-						// fall through
-					case ChildExtension:
-						childPlusExtTables.add(table);
-						break;
-					case Join: // unlikely to be in the select columns, but just in case
-						joinTable = table;
-						joinList = new ArrayList<TableMetaData>(1);
-						joinList.add(joinTable);
-						break;
-					default: // Unknown
-				}
-			}
-			table.addColumn(column);
+	        //If we are a read only property, then we would expect to not find a table,
+	        //but should plan on using the parent, to be a read only extension to it.
+	        if (resultSetMetaData.isReadOnly(colNumber)) {
+	            //We may not actually have the parentTable yet,
+	            //So we will defer updating related things until we do.
+	            readOnlyColumns.add(column);
+	        } else {
+	            TableMetaDataImpl table = (TableMetaDataImpl) tableMap.get(column.getQualifiedTableName());
+	            if (table == null) {
+	                // Create table metadata object and add to special references
+	                final Table tableDef = SqlResourceDefinitionUtils.getTable(definition, column);
+	                if (tableDef == null) {
+	                    //throw new SqlResourceException("Definition requires table element for " + column.getTableName() + ", referenced by column " + column.getColumnLabel());
+	                    System.err.println("Definition requires table element for " + column.getTableName() + ", referenced by column " + column.getColumnLabel());
+	                }
+	                table = new TableMetaDataImpl(tableName, qualifiedTableName, databaseName, TableRole.valueOf(tableDef.getRole()));
+	                tableMap.put(column.getQualifiedTableName(), table);
+	                tables.add(table);
 
-			// Add column to special column lists
-			allReadColumns.add(column);
-			switch (table.getTableRole()) {
-				case Parent:
-				case ParentExtension:
-					parentReadColumns.add(column);
-					break;
-				case Child:
-				case ChildExtension:
-					childReadColumns.add(column);
-					break;
-			}
-		}
+	                switch (table.getTableRole()) {
+	                case Parent:
+	                    parentTable = table;
+	                    if (tableDef.getAlias() != null) {
+	                        table.setTableAlias(tableDef.getAlias());
+	                    }
+	                    // fall through
+	                case ParentExtension:
+	                    parentPlusExtTables.add(table);
+	                    break;
+	                case Child:
+	                    childTable = table;
+	                    if (tableDef.getAlias() != null) {
+	                        table.setTableAlias(tableDef.getAlias());
+	                    }
+	                    // fall through
+	                case ChildExtension:
+	                    childPlusExtTables.add(table);
+	                    break;
+	                case Join: // unlikely to be in the select columns, but just in case
+	                    joinTable = table;
+	                    joinList = new ArrayList<TableMetaData>(1);
+	                    joinList.add(joinTable);
+	                    break;
+	                default: // Unknown
+	                }
+	            }
+	            table.addColumn(column);
 
-		multipleDatabases = databases.size() > 1;
+	            // Add column to special column lists
+	            allReadColumns.add(column);
+	            switch (table.getTableRole()) {
+	            case Parent:
+	            case ParentExtension:
+	                parentReadColumns.add(column);
+	                break;
+	            case Child:
+	            case ChildExtension:
+	                childReadColumns.add(column);
+	                break;
+	            }
+	        }
+	    }
+
+	    //Add the readOnly columns in appropriately
+	    if (parentTable != null) {
+	        TableMetaDataImpl table = (TableMetaDataImpl) parentTable;
+	        for (ColumnMetaData column : readOnlyColumns) {
+	            table.addColumn(column);
+	            allReadColumns.add(column);
+	            parentReadColumns.add(column);
+	        }
+	    }
+
+	    multipleDatabases = databases.size() > 1;
 	}
 }

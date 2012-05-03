@@ -14,6 +14,8 @@ import org.restsql.core.sqlresource.SqlResourceDefinition;
 public interface SqlResourceMetaData {
 
 	public List<ColumnMetaData> getAllReadColumns();
+	
+	public List<ColumnMetaData> getReadOnlyColumns();
 
 	public TableMetaData getChild();
 

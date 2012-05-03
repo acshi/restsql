@@ -116,20 +116,24 @@ public class SqlResourceFactoryImpl implements SqlResourceFactory {
 			final String packageName) {
 		final File dir = new File(dirName);
 		Config.logger.info("listing files for " + dirName);
-		for (final File file : dir.listFiles()) {
-			if (file.isFile()) {
-				final int extIndex = file.getName().indexOf(".xml");
-				if (extIndex > 0) {
-					resNames.add(packageName + file.getName().substring(0, extIndex));
-				}
-			}
-		}
-		for (final File subDir : dir.listFiles()) {
-			if (subDir.isDirectory()) {
-				String subPackageName = packageName.length() == 0 ? subDir.getName() + "." : packageName
-						+ subDir.getName() + ".";
-				getSqlResourceNames(resNames, subDir.getAbsolutePath(), subPackageName);
-			}
+		if (dir.listFiles() == null) {
+		    Config.logger.error("IO Error trying to get xml resources for " + dirName);
+		} else {
+    		for (final File file : dir.listFiles()) {
+    			if (file.isFile()) {
+    				final int extIndex = file.getName().indexOf(".xml");
+    				if (extIndex > 0) {
+    					resNames.add(packageName + file.getName().substring(0, extIndex));
+    				}
+    			}
+    		}
+    		for (final File subDir : dir.listFiles()) {
+    			if (subDir.isDirectory()) {
+    				String subPackageName = packageName.length() == 0 ? subDir.getName() + "." : packageName
+    						+ subDir.getName() + ".";
+    				getSqlResourceNames(resNames, subDir.getAbsolutePath(), subPackageName);
+    			}
+    		}
 		}
 	}
 

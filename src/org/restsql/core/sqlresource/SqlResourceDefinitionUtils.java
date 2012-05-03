@@ -28,7 +28,12 @@ public class SqlResourceDefinitionUtils {
 		Table target = null;
 		for (final Table table : definition.getMetadata().getTable()) {
 		    //SQL is not case-sensitive, so we shouldn't be either
-			if (table.getName().equalsIgnoreCase(column.getQualifiedTableName())) {
+		    //Also, use the first table as default for any column that is not
+		    //a direct descendant of a table. (that is a function, for example)
+		    /*if (column.getTableName().isEmpty()) {
+		        target = table;
+                break;
+		    } else*/ if (table.getName().equalsIgnoreCase(column.getQualifiedTableName())) {
 				target = table;
 				break;
 			} else if (table.getName().equalsIgnoreCase(column.getTableName())) {

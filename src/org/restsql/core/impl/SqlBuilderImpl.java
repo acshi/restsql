@@ -167,29 +167,33 @@ public class SqlBuilderImpl implements SqlBuilder {
 			for (final TableMetaData table : tables) {
 				final ColumnMetaData column = table.getColumns().get(param.getName());
 				if (column != null) {
-					final String qualifiedTableName = column.getQualifiedTableName();
-					SqlStruct sql = sqls.get(qualifiedTableName);
-					if (sql == null) {
-						// Create new sql holder
-						sql = new SqlStruct(DEFAULT_INSERT_SIZE, DEFAULT_INSERT_SIZE / 2);
-						sqls.put(qualifiedTableName, sql);
-						sql.getMain().append("INSERT INTO ");
-						sql.getMain().append(qualifiedTableName);
-						sql.getMain().append(" (");
-
-						sql.getClause().append(" VALUES (");
-					} else {
-						sql.getMain().append(',');
-						sql.getClause().append(',');
-					}
-					sql.getMain().append(column.getColumnName()); // since parameter may use column label
-					if (column.isCharType() || column.isDateTimeType()) {
-						sql.getClause().append('\'');
-					}
-					sql.getClause().append(param.getValue());
-					if (column.isCharType() || column.isDateTimeType()) {
-						sql.getClause().append('\'');
-					}
+				    if (metaData.getReadOnlyColumns().contains(column)) {
+                        throw new InvalidRequestException(InvalidRequestException.MESSAGE_READONLY_PARAM);
+                    } else {
+    					final String qualifiedTableName = column.getQualifiedTableName();
+    					SqlStruct sql = sqls.get(qualifiedTableName);
+    					if (sql == null) {
+    						// Create new sql holder
+    						sql = new SqlStruct(DEFAULT_INSERT_SIZE, DEFAULT_INSERT_SIZE / 2);
+    						sqls.put(qualifiedTableName, sql);
+    						sql.getMain().append("INSERT INTO ");
+    						sql.getMain().append(qualifiedTableName);
+    						sql.getMain().append(" (");
+    
+    						sql.getClause().append(" VALUES (");
+    					} else {
+    						sql.getMain().append(',');
+    						sql.getClause().append(',');
+    					}
+    					sql.getMain().append(column.getColumnName()); // since parameter may use column label
+    					if (column.isCharType() || column.isDateTimeType()) {
+    						sql.getClause().append('\'');
+    					}
+    					sql.getClause().append(param.getValue());
+    					if (column.isCharType() || column.isDateTimeType()) {
+    						sql.getClause().append('\'');
+    					}
+                    }
 				}
 			}
 		}
@@ -277,6 +281,8 @@ public class SqlBuilderImpl implements SqlBuilder {
 					if (column.isPrimaryKey()) {
 						// Add this to the res Ids - assume resIds is non null
 						resIds.add(param);
+					} else if (metaData.getReadOnlyColumns().contains(column)) {
+			            throw new InvalidRequestException(InvalidRequestException.MESSAGE_READONLY_PARAM);
 					} else if (!column.isNonqueriedForeignKey()) {
 						SqlStruct sql = sqls.get(column.getQualifiedTableName());
 						if (sql == null) {
